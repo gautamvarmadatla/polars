@@ -578,8 +578,11 @@ impl PhysicalExpr for AggQuantileExpr {
         let keep_name = ac.get_values().name().clone();
 
         let quantile_column = self.quantile.evaluate(df, state)?;
-        polars_ensure!(quantile_column.len() <= 1, ComputeError:
-            "polars only supports computing a single quantile in a groupby aggregation context"
+        polars_ensure!(
+            quantile_column.len() <= 1
+                && !matches!(quantile_column.dtype(), DataType::List(_)),
+            ComputeError:
+                "polars only supports computing a single quantile in a groupby aggregation context"
         );
         let quantile: f64 = quantile_column.get(0).unwrap().try_extract()?;
 
