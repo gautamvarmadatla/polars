@@ -140,7 +140,9 @@ def test_quantile_error_checking() -> None:
 
 def test_multi_quantile_group_by_unsupported() -> None:
     df = pl.DataFrame({"g": ["a", "a", "b", "b"], "v": [1, 2, 3, 4]})
-    with pytest.raises(pl.exceptions.ComputeError, match="single quantile"):
+    with pytest.raises(
+        pl.exceptions.SchemaError, match="expected expression of dtype 'numeric'"
+    ):
         df.group_by("g").agg(pl.col("v").quantile([0.25, 0.75]))
 
 
