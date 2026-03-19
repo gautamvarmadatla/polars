@@ -138,7 +138,7 @@ def test_quantile_error_checking() -> None:
         s.quantile([0.0, 1.2])
 
 
-def test_multi_quantile_group_by_unsupported() -> None:
+def test_multi_quantile_group_by_unsupported_26956() -> None:
     df = pl.DataFrame({"g": ["a", "a", "b", "b"], "v": [1, 2, 3, 4]})
     with pytest.raises(
         pl.exceptions.SchemaError, match="expected expression of dtype 'numeric'"
