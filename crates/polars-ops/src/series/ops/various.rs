@@ -67,7 +67,14 @@ pub trait SeriesMethods: SeriesSealed {
     }
 
     fn ensure_sorted_arg(&self, operation: &str) -> PolarsResult<()> {
-        polars_ensure!(self.is_sorted(Default::default())?, InvalidOperation: "argument in operation '{}' is not sorted, please sort the 'expr/series/column' first", operation);
+        let s = self.as_series();
+        let is_sorted = matches!(s.is_sorted_flag(), IsSorted::Ascending)
+            || self.is_sorted(Default::default())?
+            || self.is_sorted(SortOptions {
+                nulls_last: true,
+                ..Default::default()
+            })?;
+        polars_ensure!(is_sorted, InvalidOperation: "argument in operation '{}' is not sorted, please sort the 'expr/series/column' first", operation);
         Ok(())
     }
 
@@ -75,14 +82,20 @@ pub trait SeriesMethods: SeriesSealed {
     fn is_sorted(&self, options: SortOptions) -> PolarsResult<bool> {
         let s = self.as_series();
         let null_count = s.null_count();
+        let s_len = s.len();
 
         // fast paths
-        if (options.descending
-            && (options.nulls_last || null_count == 0)
-            && matches!(s.is_sorted_flag(), IsSorted::Descending))
-            || (!options.descending
-                && (!options.nulls_last || null_count == 0)
-                && matches!(s.is_sorted_flag(), IsSorted::Ascending))
+        let nulls_in_expected_place = null_count == 0
+            || if options.nulls_last {
+                s.slice((s_len - null_count) as i64, null_count)
+                    .null_count()
+                    == null_count
+            } else {
+                s.slice(0, null_count).null_count() == null_count
+            };
+        if nulls_in_expected_place
+            && ((options.descending && matches!(s.is_sorted_flag(), IsSorted::Descending))
+                || (!options.descending && matches!(s.is_sorted_flag(), IsSorted::Ascending)))
         {
             return Ok(true);
         }
@@ -100,24 +113,13 @@ pub trait SeriesMethods: SeriesSealed {
             return encoded.into_series().is_sorted(options);
         }
 
-        let s_len = s.len();
         if null_count == s_len {
             // All nulls is all equal
             return Ok(true);
         }
-        // Check if nulls are in the right location.
-        if null_count > 0 {
-            // The slice triggers a fast null count
-            if options.nulls_last {
-                if s.slice((s_len - null_count) as i64, null_count)
-                    .null_count()
-                    != null_count
-                {
-                    return Ok(false);
-                }
-            } else if s.slice(0, null_count).null_count() != null_count {
-                return Ok(false);
-            }
+
+        if !nulls_in_expected_place {
+            return Ok(false);
         }
 
         if s.dtype().is_primitive_numeric() {

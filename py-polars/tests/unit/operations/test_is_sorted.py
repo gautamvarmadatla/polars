@@ -285,6 +285,20 @@ def test_is_sorted() -> None:
     assert not pl.Series([5, 2, 1, 10, 1, -1, None, None]).is_sorted(
         descending=True, nulls_last=True
     )
+    assert (
+        not pl.Series([3, 1, 2, None]).sort(nulls_last=True).is_sorted(nulls_last=False)
+    )
+    assert pl.Series([3, 1, 2, None]).sort(nulls_last=True).is_sorted(nulls_last=True)
+    assert (
+        not pl.Series([3, 1, 2, None])
+        .sort(descending=True)
+        .is_sorted(descending=True, nulls_last=True)
+    )
+    assert (
+        pl.Series([3, 1, 2, None])
+        .sort(descending=True)
+        .is_sorted(descending=True, nulls_last=False)
+    )
 
 
 def test_sorted_flag() -> None:
