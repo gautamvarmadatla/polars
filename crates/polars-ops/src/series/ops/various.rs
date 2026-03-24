@@ -67,14 +67,12 @@ pub trait SeriesMethods: SeriesSealed {
     }
 
     fn ensure_sorted_arg(&self, operation: &str) -> PolarsResult<()> {
-        let s = self.as_series();
-        let is_sorted = matches!(s.is_sorted_flag(), IsSorted::Ascending)
-            || self.is_sorted(Default::default())?
-            || self.is_sorted(SortOptions {
-                nulls_last: true,
-                ..Default::default()
-            })?;
-        polars_ensure!(is_sorted, InvalidOperation: "argument in operation '{}' is not sorted, please sort the 'expr/series/column' first", operation);
+        polars_ensure!(
+            matches!(self.as_series().is_sorted_flag(), IsSorted::Ascending)
+                || self.is_sorted(Default::default())?,
+            InvalidOperation: "argument in operation '{}' is not sorted, please sort the 'expr/series/column' first",
+            operation
+        );
         Ok(())
     }
 
@@ -85,19 +83,18 @@ pub trait SeriesMethods: SeriesSealed {
         let s_len = s.len();
 
         // fast paths
-        let nulls_in_expected_place = null_count == 0
-            || if options.nulls_last {
-                s.slice((s_len - null_count) as i64, null_count)
-                    .null_count()
-                    == null_count
-            } else {
-                s.slice(0, null_count).null_count() == null_count
-            };
-        if nulls_in_expected_place
-            && ((options.descending && matches!(s.is_sorted_flag(), IsSorted::Descending))
-                || (!options.descending && matches!(s.is_sorted_flag(), IsSorted::Ascending)))
+        if (options.descending && matches!(s.is_sorted_flag(), IsSorted::Descending))
+            || (!options.descending && matches!(s.is_sorted_flag(), IsSorted::Ascending))
         {
-            return Ok(true);
+            if null_count == 0 {
+                return Ok(true);
+            }
+            let nulls_at_boundary = if options.nulls_last {
+                s.get(s_len - 1)?.is_null()
+            } else {
+                s.get(0)?.is_null()
+            };
+            return Ok(nulls_at_boundary);
         }
 
         // for struct types we row-encode and recurse
@@ -117,9 +114,19 @@ pub trait SeriesMethods: SeriesSealed {
             // All nulls is all equal
             return Ok(true);
         }
-
-        if !nulls_in_expected_place {
-            return Ok(false);
+        // Check if nulls are in the right location.
+        if null_count > 0 {
+            // The slice triggers a fast null count
+            if options.nulls_last {
+                if s.slice((s_len - null_count) as i64, null_count)
+                    .null_count()
+                    != null_count
+                {
+                    return Ok(false);
+                }
+            } else if s.slice(0, null_count).null_count() != null_count {
+                return Ok(false);
+            }
         }
 
         if s.dtype().is_primitive_numeric() {
