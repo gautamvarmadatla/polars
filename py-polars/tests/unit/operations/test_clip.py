@@ -183,6 +183,28 @@ def test_clip_mixed_scalar_series_bound_with_nulls() -> None:
     result = s_with_nulls.clip(lower_bound=2, upper_bound=pl.Series([None, 6, 7]))
     assert_series_equal(result, pl.Series([None, 5, 7], dtype=pl.Int64))
 
+    result = pl.Series([None, 5, 8], dtype=pl.Int64).clip(
+        lower_bound=pl.Series([None, 1, 3]), upper_bound=6
+    )
+    assert_series_equal(result, pl.Series([None, 5, 6], dtype=pl.Int64))
+
+    null_scalar = pl.Series([None], dtype=pl.Int64)
+
+    assert_series_equal(
+        s.clip(lower_bound=null_scalar, upper_bound=pl.Series([3, 4, 9])),
+        pl.Series([0, 4, 8]),
+    )
+
+    assert_series_equal(
+        s.clip(lower_bound=pl.Series([1, 6, 3]), upper_bound=null_scalar),
+        pl.Series([1, 6, 8]),
+    )
+
+    assert_series_equal(
+        s.clip(lower_bound=null_scalar, upper_bound=null_scalar),
+        s,
+    )
+
     assert_series_equal(
         pl.Series([0, 5, 8]).clip(lower_bound=pl.Series([None, 3, 3])),
         pl.Series([0, 5, 8]),
