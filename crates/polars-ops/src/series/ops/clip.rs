@@ -159,11 +159,19 @@ where
             (None, None) => ca.clone(),
         },
         (1, _) => match min.get(0) {
-            Some(min) => clip_binary(ca, max, |v, b| clamp(v, min, b)),
+            Some(min) => binary_elementwise(ca, max, |opt_s, opt_max| match (opt_s, opt_max) {
+                (Some(s), Some(max)) => Some(clamp(s, min, max)),
+                (Some(s), None) => Some(clamp_min(s, min)),
+                (None, _) => None,
+            }),
             None => clip_binary(ca, max, clamp_max),
         },
         (_, 1) => match max.get(0) {
-            Some(max) => clip_binary(ca, min, |v, b| clamp(v, b, max)),
+            Some(max) => binary_elementwise(ca, min, |opt_s, opt_min| match (opt_s, opt_min) {
+                (Some(s), Some(min)) => Some(clamp(s, min, max)),
+                (Some(s), None) => Some(clamp_max(s, max)),
+                (None, _) => None,
+            }),
             None => clip_binary(ca, min, clamp_min),
         },
         _ => clip_ternary(ca, min, max),
