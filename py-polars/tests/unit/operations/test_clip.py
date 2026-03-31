@@ -168,7 +168,7 @@ def test_clip_unequal_lengths_22018() -> None:
         pl.Series([1, 2, 3]).clip(pl.Series([1, 2, 3]), pl.Series([1, 2]))
 
 
-def test_clip_mixed_scalar_series_bound_with_nulls() -> None:
+def test_clip_mixed_scalar_series_bound_with_nulls_27086() -> None:
     s = pl.Series([0, 5, 8])
 
     result = s.clip(lower_bound=2, upper_bound=pl.Series([None, 6, 7]))
@@ -215,7 +215,7 @@ def test_clip_mixed_scalar_series_bound_with_nulls() -> None:
     )
 
 
-def test_clip_mixed_scalar_series_bound_with_nulls_lazy() -> None:
+def test_clip_mixed_scalar_series_bound_with_nulls_lazy_27086() -> None:
     lf = pl.LazyFrame({"a": [0, 5, 8], "upper": [None, 6, 7]})
     result = lf.select(pl.col("a").clip(lower_bound=2, upper_bound=pl.col("upper")))
     assert_frame_equal(result, pl.LazyFrame({"a": [2, 5, 7]}))
