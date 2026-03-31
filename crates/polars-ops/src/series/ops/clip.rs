@@ -217,7 +217,6 @@ where
     unary_elementwise(ca, |v| v.map(op))
 }
 
-
 fn clip_ternary<T>(
     ca: &ChunkedArray<T>,
     min: &ChunkedArray<T>,
