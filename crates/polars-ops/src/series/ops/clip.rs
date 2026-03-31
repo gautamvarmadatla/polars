@@ -164,7 +164,11 @@ where
                 (Some(s), None) => Some(clamp_min(s, min)),
                 (None, _) => None,
             }),
-            None => clip_binary(ca, max, clamp_max),
+            None => binary_elementwise(ca, max, |opt_s, opt_max| match (opt_s, opt_max) {
+                (Some(s), Some(max)) => Some(clamp_max(s, max)),
+                (Some(s), None) => Some(s),
+                (None, _) => None,
+            }),
         },
         (_, 1) => match max.get(0) {
             Some(max) => binary_elementwise(ca, min, |opt_s, opt_min| match (opt_s, opt_min) {
@@ -172,7 +176,11 @@ where
                 (Some(s), None) => Some(clamp_max(s, max)),
                 (None, _) => None,
             }),
-            None => clip_binary(ca, min, clamp_min),
+            None => binary_elementwise(ca, min, |opt_s, opt_min| match (opt_s, opt_min) {
+                (Some(s), Some(min)) => Some(clamp_min(s, min)),
+                (Some(s), None) => Some(s),
+                (None, _) => None,
+            }),
         },
         _ => clip_ternary(ca, min, max),
     }
@@ -193,7 +201,11 @@ where
             Some(bound) => clip_unary(ca, |v| op(v, bound)),
             None => ca.clone(),
         },
-        _ => clip_binary(ca, bound, op),
+        _ => binary_elementwise(ca, bound, |opt_s, opt_bound| match (opt_s, opt_bound) {
+            (Some(s), Some(bound)) => Some(op(s, bound)),
+            (Some(s), None) => Some(s),
+            (None, _) => None,
+        }),
     }
 }
 
@@ -205,18 +217,6 @@ where
     unary_elementwise(ca, |v| v.map(op))
 }
 
-fn clip_binary<T, F>(ca: &ChunkedArray<T>, bound: &ChunkedArray<T>, op: F) -> ChunkedArray<T>
-where
-    T: PolarsNumericType,
-    T::Native: PartialOrd,
-    F: Fn(T::Native, T::Native) -> T::Native,
-{
-    binary_elementwise(ca, bound, |opt_s, opt_bound| match (opt_s, opt_bound) {
-        (Some(s), Some(bound)) => Some(op(s, bound)),
-        (Some(s), None) => Some(s),
-        (None, _) => None,
-    })
-}
 
 fn clip_ternary<T>(
     ca: &ChunkedArray<T>,
