@@ -102,14 +102,20 @@ pub trait SeriesMethods: SeriesSealed {
 fn is_sorted_impl(s: &Series, options: SortOptions) -> PolarsResult<bool> {
     let null_count = s.null_count();
 
-    if (options.descending
-        && (options.nulls_last || null_count == 0)
+    let flag_matches_direction = (options.descending
         && matches!(s.is_sorted_flag(), IsSorted::Descending))
-        || (!options.descending
-            && (!options.nulls_last || null_count == 0)
-            && matches!(s.is_sorted_flag(), IsSorted::Ascending))
-    {
-        return Ok(true);
+        || (!options.descending && matches!(s.is_sorted_flag(), IsSorted::Ascending));
+    if flag_matches_direction {
+        if null_count == 0 {
+            return Ok(true);
+        }
+        let s_len = s.len();
+        let null_block = if options.nulls_last {
+            s.slice((s_len - null_count) as i64, null_count)
+        } else {
+            s.slice(0, null_count)
+        };
+        return Ok(null_block.null_count() == null_count);
     }
 
     #[cfg(feature = "dtype-struct")]

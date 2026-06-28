@@ -291,6 +291,18 @@ def test_series_is_sorted() -> None:
     )
 
 
+def test_is_sorted_flag_fast_path_null_placement_26993() -> None:
+    asc = pl.Series([3, 1, 2, None]).sort(nulls_last=True)
+    assert asc.flags["SORTED_ASC"]
+    assert asc.is_sorted(nulls_last=True)
+    assert not asc.is_sorted(nulls_last=False)
+
+    desc = pl.Series([3, 1, 2, None]).sort(descending=True)
+    assert desc.flags["SORTED_DESC"]
+    assert desc.is_sorted(descending=True, nulls_last=False)
+    assert not desc.is_sorted(descending=True, nulls_last=True)
+
+
 @given(s=series(), descending=st.booleans(), nulls_last=st.booleans())
 def test_series_is_sorted_parametric(
     s: pl.Series, descending: bool, nulls_last: bool
