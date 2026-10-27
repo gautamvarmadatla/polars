@@ -5037,3 +5037,20 @@ def test_join_asof_by_key_predicate_other_time_unit(engine: EngineType) -> None:
     ).filter(pl.col("x").cast(pl.Int64) == 1000)
 
     assert q.collect(engine=engine)["v"].to_list() == [42]
+
+
+@pytest.mark.parametrize("engine", ["in-memory", "streaming"])
+def test_join_suffixed_output_named_like_right_key(engine: EngineType) -> None:
+    left = pl.LazyFrame({"id": [1, 2, 3], "name": ["ann", "bob", "cy"]})
+    right = pl.LazyFrame({"id": [7, 8, 9], "id_right": [1, 2, 7], "score": [5, 6, 0]})
+    q = left.join(right, left_on="id", right_on="id_right")
+
+    for op in [
+        lambda q: q,
+        lambda q: q.select("id_right"),
+        lambda q: q.filter(pl.col("id_right") == 7),
+    ]:
+        expected = op(q).collect(engine=engine, optimizations=pl.QueryOptFlags.none())
+        assert_frame_equal(
+            op(q).collect(engine=engine), expected, check_row_order=False
+        )
